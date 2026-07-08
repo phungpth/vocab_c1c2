@@ -5680,88 +5680,35 @@
             speakGoogleTTS(currentSentences[currentIndex].text, 'normal');
         }
         async function speakGoogleTTS(text, speedType) {
-            // 1. Hủy ngay các câu đang đọc dở để tránh chồng chéo âm thanh khi bấm nhanh
-            window.speechSynthesis.cancel();
+            audioPlayer.pause();
 
-            if (!text) return;
+            if (audioCache[speedType][currentIndex]) {
+                audioPlayer.src = audioCache[speedType][currentIndex];
+                audioPlayer.play().catch(e => console.log("Audio interrupted"));
+                return;
+            }
 
             const targetButton = speedType === 'normal' ? btnPlay : btnPlaySlow;
             const originalText = targetButton.innerText;
             targetButton.disabled = true;
-            targetButton.innerText = "⏳ Đang đọc...";
+            targetButton.innerText = "⏳ Tải...";
 
-            // 2. Chờ 50ms để trình duyệt giải phóng hoàn toàn bộ đệm âm thanh cũ
-            setTimeout(() => {
-                try {
-                    console.log('updated')
-                    // Tạo đối tượng đọc dữ liệu chữ văn bản
-                    const utterance = new SpeechSynthesisUtterance(text);
+            try {
+                const encodedText = encodeURIComponent(text);
+                const speedValue = speedType === 'normal' ? '1' : '0.45';
+                const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodedText}&ttsspeed=${speedValue}`;
 
-                    // Cài đặt ngôn ngữ đọc là tiếng Anh
-                    utterance.lang = 'en-US';
+                audioCache[speedType][currentIndex] = audioUrl;
+                audioPlayer.src = audioUrl;
+                audioPlayer.play().catch(e => console.log("Audio interrupted"));
 
-                    // Giữ đúng tốc độ ban đầu của bạn: Bình thường = 1.0, Chậm = 0.45
-                    utterance.rate = speedType === 'normal' ? 1.0 : 0.45;
-
-                    // Tìm giọng đọc tiếng Anh (Anh-Mỹ hoặc Anh-Anh) có sẵn tốt nhất trên thiết bị
-                    const voices = window.speechSynthesis.getVoices();
-                    const enVoice = voices.find(v => v.lang.startsWith('en-') && v.localService === true) || voices.find(v => v.lang.startsWith('en-'));
-                    if (enVoice) {
-                        utterance.voice = enVoice;
-                    }
-
-                    // Sự kiện khi đọc xong thì trả lại chữ cho nút bấm
-                    utterance.onend = () => {
-                        targetButton.disabled = false;
-                        targetButton.innerText = originalText;
-                    };
-
-                    // Sự kiện nếu gặp lỗi cũng trả lại chữ cho nút bấm
-                    utterance.onerror = () => {
-                        targetButton.disabled = false;
-                        targetButton.innerText = originalText;
-                    };
-
-                    // 3. Kích hoạt trình duyệt phát giọng đọc
-                    window.speechSynthesis.speak(utterance);
-
-                } catch (error) {
-                    console.error("SpeechSynthesis Error:", error);
-                    targetButton.disabled = false;
-                    targetButton.innerText = originalText;
-                }
-            }, 50);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                targetButton.disabled = false;
+                targetButton.innerText = originalText;
+            }
         }
-        // async function speakGoogleTTS(text, speedType) {
-        //     audioPlayer.pause();
-
-        //     if (audioCache[speedType][currentIndex]) {
-        //         audioPlayer.src = audioCache[speedType][currentIndex];
-        //         audioPlayer.play().catch(e => console.log("Audio interrupted"));
-        //         return;
-        //     }
-
-        //     const targetButton = speedType === 'normal' ? btnPlay : btnPlaySlow;
-        //     const originalText = targetButton.innerText;
-        //     targetButton.disabled = true;
-        //     targetButton.innerText = "⏳ Tải...";
-
-        //     try {
-        //         const encodedText = encodeURIComponent(text);
-        //         const speedValue = speedType === 'normal' ? '1' : '0.45';
-        //         const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodedText}&ttsspeed=${speedValue}`;
-
-        //         audioCache[speedType][currentIndex] = audioUrl;
-        //         audioPlayer.src = audioUrl;
-        //         audioPlayer.play().catch(e => console.log("Audio interrupted"));
-
-        //     } catch (error) {
-        //         console.error(error);
-        //     } finally {
-        //         targetButton.disabled = false;
-        //         targetButton.innerText = originalText;
-        //     }
-        // }
 
         // ================= SỰ KIỆN LẮNG NGHE =================
         unitSelectEl.addEventListener('change', (e) => {
