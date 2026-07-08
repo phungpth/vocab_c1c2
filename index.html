@@ -5680,28 +5680,23 @@
             speakGoogleTTS(currentSentences[currentIndex].text, 'normal');
         }
         async function speakGoogleTTS(text, speedType) {
-            // 1. Hủy mọi câu nói đang phát dở (tránh chồng chéo âm thanh)
+            // Hủy ngay các câu đang đọc dở để tránh chồng âm thanh
             window.speechSynthesis.cancel();
 
             if (!text) return;
 
-            // 2. Tạo đối tượng đọc
-            const utterance = new SpeechSynthesisUtterance(text);
+            // Chờ 50ms để trình duyệt kịp xóa hẳn bộ nhớ đệm âm thanh cũ trước khi phát câu mới
+            setTimeout(() => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = speedType === 'normal' ? 1.0 : 0.55;
 
-            // 3. Cài đặt ngôn ngữ là tiếng Anh (en-US)
-            utterance.lang = 'en-US';
+                const voices = window.speechSynthesis.getVoices();
+                const enVoice = voices.find(v => v.lang.startsWith('en-'));
+                if (enVoice) utterance.voice = enVoice;
 
-            // 4. Cài đặt tốc độ đọc dựa vào speedType
-            // Tốc độ bình thường là 1, đọc chậm bạn có thể để 0.5 hoặc 0.6
-            utterance.rate = speedType === 'normal' ? 1.0 : 0.55;
-
-            // 5. Tìm giọng đọc tiếng Anh chuẩn (nếu có)
-            const voices = window.speechSynthesis.getVoices();
-            const enVoice = voices.find(v => v.lang.startsWith('en-'));
-            if (enVoice) utterance.voice = enVoice;
-
-            // 6. Thực hiện phát âm thanh
-            window.speechSynthesis.speak(utterance);
+                window.speechSynthesis.speak(utterance);
+            }, 50);
         }
         // async function speakGoogleTTS(text, speedType) {
         //     audioPlayer.pause();
