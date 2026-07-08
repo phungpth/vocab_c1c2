@@ -5680,47 +5680,56 @@
             speakGoogleTTS(currentSentences[currentIndex].text, 'normal');
         }
         async function speakGoogleTTS(text, speedType) {
-            // 1. Dừng ngay lập tức âm thanh đang phát dở
-            audioPlayer.pause();
+            // 1. Hủy ngay các câu đang đọc dở để tránh chồng chéo âm thanh khi bấm nhanh
+            window.speechSynthesis.cancel();
 
-            // Nếu đã có trong cache thì lấy ra chạy luôn
-            if (audioCache[speedType][currentIndex]) {
-                audioPlayer.src = audioCache[speedType][currentIndex];
-                audioPlayer.play().catch(() => { /* Bỏ qua lỗi ngắt âm thanh khi bấm nhanh */ });
-                return;
-            }
+            if (!text) return;
 
             const targetButton = speedType === 'normal' ? btnPlay : btnPlaySlow;
             const originalText = targetButton.innerText;
             targetButton.disabled = true;
-            targetButton.innerText = "⏳ Tải...";
+            targetButton.innerText = "⏳ Đang đọc...";
 
-            try {
-                const encodedText = encodeURIComponent(text);
+            // 2. Chờ 50ms để trình duyệt giải phóng hoàn toàn bộ đệm âm thanh cũ
+            setTimeout(() => {
+                try {
+                    // Tạo đối tượng đọc dữ liệu chữ văn bản
+                    const utterance = new SpeechSynthesisUtterance(text);
 
-                // Tốc độ ban đầu: bình thường là 1, đọc chậm là 0.45
-                const speedValue = speedType === 'normal' ? '1' : '0.45';
+                    // Cài đặt ngôn ngữ đọc là tiếng Anh
+                    utterance.lang = 'en-US';
 
-                // SỬ DỤNG LINK GOOGLE TTS CẬP NHẬT (Không bị chặn trên GitHub Pages, đúng giọng gốc)
-                const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodedText}&ttsspeed=${speedValue}`;
+                    // Giữ đúng tốc độ ban đầu của bạn: Bình thường = 1.0, Chậm = 0.45
+                    utterance.rate = speedType === 'normal' ? 1.0 : 0.45;
 
-                // 2. Xóa src cũ để ép trình duyệt giải phóng bộ đệm cũ, tránh lỗi Interrupted
-                audioPlayer.removeAttribute('src');
-                audioPlayer.load();
+                    // Tìm giọng đọc tiếng Anh (Anh-Mỹ hoặc Anh-Anh) có sẵn tốt nhất trên thiết bị
+                    const voices = window.speechSynthesis.getVoices();
+                    const enVoice = voices.find(v => v.lang.startsWith('en-') && v.localService === true) || voices.find(v => v.lang.startsWith('en-'));
+                    if (enVoice) {
+                        utterance.voice = enVoice;
+                    }
 
-                // 3. Gán link mới và phát
-                audioCache[speedType][currentIndex] = audioUrl;
-                audioPlayer.src = audioUrl;
+                    // Sự kiện khi đọc xong thì trả lại chữ cho nút bấm
+                    utterance.onend = () => {
+                        targetButton.disabled = false;
+                        targetButton.innerText = originalText;
+                    };
 
-                // Bắt lỗi im lặng để không bị hiện chữ đỏ ở Console khi người dùng chuyển câu nhanh
-                audioPlayer.play().catch(() => { /* Bỏ qua lỗi ngắt giữa chừng */ });
+                    // Sự kiện nếu gặp lỗi cũng trả lại chữ cho nút bấm
+                    utterance.onerror = () => {
+                        targetButton.disabled = false;
+                        targetButton.innerText = originalText;
+                    };
 
-            } catch (error) {
-                console.error(error);
-            } finally {
-                targetButton.disabled = false;
-                targetButton.innerText = originalText;
-            }
+                    // 3. Kích hoạt trình duyệt phát giọng đọc
+                    window.speechSynthesis.speak(utterance);
+
+                } catch (error) {
+                    console.error("SpeechSynthesis Error:", error);
+                    targetButton.disabled = false;
+                    targetButton.innerText = originalText;
+                }
+            }, 50);
         }
         // async function speakGoogleTTS(text, speedType) {
         //     audioPlayer.pause();
